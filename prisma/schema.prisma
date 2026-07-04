@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Tipo de movimiento del vehículo
+enum TipoMovimiento {
+  TOMA // el chofer toma / recibe el vehículo
+  DEJA // el chofer deja / entrega el vehículo
+}
+
+model Chofer {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  activo    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  registros Registro[]
+
+  @@map("choferes")
+}
+
+model Vehiculo {
+  id        Int        @id @default(autoincrement())
+  targa     String     @unique // patente / targa del vehículo
+  modelo    String?
+  activo    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  registros Registro[]
+
+  @@map("vehiculos")
+}
+
+model Registro {
+  id           Int            @id @default(autoincrement())
+  fechaHora    DateTime       @default(now()) // se setea automáticamente al crear
+  tipo         TipoMovimiento
+  comentarios  String?
+  fotos        Json           @default("[]") // array de { url, publicId } de Cloudinary
+
+  choferId     Int
+  chofer       Chofer         @relation(fields: [choferId], references: [id])
+
+  vehiculoId   Int
+  vehiculo     Vehiculo       @relation(fields: [vehiculoId], references: [id])
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([choferId])
+  @@index([vehiculoId])
+  @@index([fechaHora])
+  @@map("registros")
+}
