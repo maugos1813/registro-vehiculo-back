@@ -160,4 +160,40 @@ async function registrar(req, res, next) {
   }
 }
 
-module.exports = { login, perfil, registrar, listar, registroPublico };
+// PUT /api/auth/usuarios/:id/rol  (solo ADMIN)
+// Body: { rol: "ADMIN" | "CHOFER" }
+async function cambiarRol(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    const rolFinal = (req.body.rol || '').toUpperCase();
+
+    if (!ROLES_VALIDOS.includes(rolFinal)) {
+      return res.status(400).json({ ok: false, mensaje: `El rol debe ser uno de: ${ROLES_VALIDOS.join(', ')}` });
+    }
+    if (id === req.usuario.id) {
+      return res.status(400).json({ ok: false, mensaje: 'No podés cambiar tu propio rol' });
+    }
+
+    const usuario = await prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+
+    if (rolFinal === 'CHOFER' && !usuario.choferId) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: 'Este usuario no está vinculado a ningún chofer, no se puede pasar a rol Chofer',
+      });
+    }
+
+    const actualizado = await prisma.usuario.update({
+      where: { id },
+      data: { rol: rolFinal },
+      include: { chofer: true },
+    });
+
+    res.json({ ok: true, data: usuarioPublico(actualizado) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, perfil, registrar, listar, registroPublico, cambiarRol };

@@ -8,6 +8,7 @@ router.post('/login', controller.login);
 router.post('/registro', controller.registroPublico);
 router.get('/me', requiereAuth, controller.perfil);
 router.get('/usuarios', requiereAuth, soloAdmin, controller.listar);
+router.put('/usuarios/:id/rol', requiereAuth, soloAdmin, controller.cambiarRol);
 router.post('/registrar', requiereAuth, soloAdmin, controller.registrar);
 
 module.exports = router;
