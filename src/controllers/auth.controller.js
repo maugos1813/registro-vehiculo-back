@@ -243,7 +243,13 @@ async function olvidoPassword(req, res, next) {
       },
     });
 
-    await enviarEmailRecuperacion(usuario.email, tokenCrudo);
+    // No se espera el envío del email: el SMTP de Gmail puede tardar varios
+    // segundos y sumado al "despertar" del server en el plan gratuito de Render
+    // termina superando el timeout del frontend. El token ya quedó guardado,
+    // así que la respuesta puede volver de inmediato.
+    enviarEmailRecuperacion(usuario.email, tokenCrudo).catch((err) => {
+      console.error('Error enviando email de recuperación:', err);
+    });
 
     res.json({ ok: true, mensaje });
   } catch (err) {
