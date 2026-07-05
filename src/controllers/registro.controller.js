@@ -11,8 +11,12 @@ async function listar(req, res, next) {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
+    // Un chofer solo puede ver sus propios registros (y fotos); el admin ve todo.
+    const esAdmin = req.usuario.rol === 'ADMIN';
+    const choferIdForzado = esAdmin ? (choferId ? Number(choferId) : undefined) : req.usuario.choferId;
+
     const where = {
-      ...(choferId && { choferId: Number(choferId) }),
+      ...(choferIdForzado && { choferId: choferIdForzado }),
       ...(vehiculoId && { vehiculoId: Number(vehiculoId) }),
       ...(tipo && { tipo }),
       ...((desde || hasta) && {
@@ -52,6 +56,12 @@ async function obtener(req, res, next) {
       include: { chofer: true, vehiculo: true },
     });
     if (!registro) return res.status(404).json({ ok: false, mensaje: 'Registro no encontrado' });
+
+    const esAdmin = req.usuario.rol === 'ADMIN';
+    if (!esAdmin && registro.choferId !== req.usuario.choferId) {
+      return res.status(403).json({ ok: false, mensaje: 'No tenés permiso para ver este registro' });
+    }
+
     res.json({ ok: true, data: registro });
   } catch (err) {
     next(err);
@@ -71,6 +81,16 @@ async function crear(req, res, next) {
         ok: false,
         mensaje: `El campo "tipo" es obligatorio y debe ser uno de: ${TIPOS_VALIDOS.join(', ')}`,
       });
+    }
+
+    // Un chofer no puede crear registros a nombre de otro: se ignora lo que venga
+    // en el body y se usa siempre su propio choferId. Solo el admin puede elegir.
+    if (req.usuario.rol !== 'ADMIN') {
+      if (!req.usuario.choferId) {
+        return res.status(403).json({ ok: false, mensaje: 'Tu usuario no está vinculado a ningún chofer' });
+      }
+      choferId = req.usuario.choferId;
+      choferNombre = undefined;
     }
 
     // Resolver chofer: por id, o por nombre (crea si no existe) para que la app sea "rápida"
@@ -137,6 +157,11 @@ async function actualizar(req, res, next) {
     const registroActual = await prisma.registro.findUnique({ where: { id } });
     if (!registroActual) return res.status(404).json({ ok: false, mensaje: 'Registro no encontrado' });
 
+    const esAdmin = req.usuario.rol === 'ADMIN';
+    if (!esAdmin && registroActual.choferId !== req.usuario.choferId) {
+      return res.status(403).json({ ok: false, mensaje: 'No tenés permiso para modificar este registro' });
+    }
+
     const fotosNuevas = await subirFotosCloudinary(req.files);
 
     const registro = await prisma.registro.update({
@@ -161,6 +186,11 @@ async function eliminar(req, res, next) {
     const id = Number(req.params.id);
     const registro = await prisma.registro.findUnique({ where: { id } });
     if (!registro) return res.status(404).json({ ok: false, mensaje: 'Registro no encontrado' });
+
+    const esAdmin = req.usuario.rol === 'ADMIN';
+    if (!esAdmin && registro.choferId !== req.usuario.choferId) {
+      return res.status(403).json({ ok: false, mensaje: 'No tenés permiso para eliminar este registro' });
+    }
 
     // Borra también las fotos en Cloudinary (nube) asociadas a este registro
     const fotos = registro.fotos || [];
@@ -188,7 +218,14 @@ async function ultimoEstadoVehiculo(req, res, next) {
     if (!ultimo) {
       return res.json({ ok: true, data: null, mensaje: 'Sin movimientos registrados para este vehículo' });
     }
-    res.json({ ok: true, data: ultimo });
+
+    // El estado del vehículo (quién lo tiene) es visible para todos los autenticados,
+    // pero las fotos de evidencia de otro chofer solo las ve el admin o su dueño.
+    const esAdmin = req.usuario.rol === 'ADMIN';
+    const esDueno = ultimo.choferId === req.usuario.choferId;
+    const data = esAdmin || esDueno ? ultimo : { ...ultimo, fotos: [] };
+
+    res.json({ ok: true, data });
   } catch (err) {
     next(err);
   }

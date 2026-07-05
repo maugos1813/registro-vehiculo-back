@@ -1,8 +1,11 @@
 const { Router } = require('express');
 const controller = require('../controllers/registro.controller');
 const uploadFotos = require('../middlewares/upload.middleware');
+const { requiereAuth } = require('../middlewares/auth.middleware');
 
 const router = Router();
+
+router.use(requiereAuth);
 
 router.get('/', controller.listar);
 router.get('/ultimo/:vehiculoId', controller.ultimoEstadoVehiculo);

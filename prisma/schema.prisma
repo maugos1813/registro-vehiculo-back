@@ -13,6 +13,27 @@ enum TipoMovimiento {
   DEJA // el chofer deja / entrega el vehículo
 }
 
+// Rol de la cuenta de usuario (para autenticación / permisos)
+enum RolUsuario {
+  ADMIN  // ve y administra todo (incluidas las fotos de todos)
+  CHOFER // solo ve y administra sus propios registros
+}
+
+model Usuario {
+  id        Int        @id @default(autoincrement())
+  email     String     @unique
+  password  String     // hash bcrypt, nunca texto plano
+  rol       RolUsuario @default(CHOFER)
+  activo    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  choferId  Int?       @unique // solo se usa cuando rol = CHOFER
+  chofer    Chofer?    @relation(fields: [choferId], references: [id])
+
+  @@map("usuarios")
+}
+
 model Chofer {
   id        Int        @id @default(autoincrement())
   nombre    String     @unique
@@ -20,6 +41,7 @@ model Chofer {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   registros Registro[]
+  usuario   Usuario?
 
   @@map("choferes")
 }
