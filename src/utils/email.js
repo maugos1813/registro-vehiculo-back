@@ -1,4 +1,14 @@
+const dns = require('dns');
 const nodemailer = require('nodemailer');
+
+// Algunos hosts en la nube (ej. Render) reportan una interfaz IPv6 que en
+// realidad no tiene salida a internet. Nodemailer resuelve A y AAAA y elige
+// una al azar, así que puede terminar intentando conectar por esa IPv6
+// inexistente y tirar ENETUNREACH. Forzamos que solo resuelva IPv4.
+if (dns.Resolver) {
+  dns.Resolver.prototype.resolve6 = (hostname, callback) => callback(null, []);
+}
+dns.resolve6 = (hostname, callback) => callback(null, []);
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
