@@ -44,6 +44,55 @@ async function login(req, res, next) {
   }
 }
 
+// POST /api/auth/registro  (público - autorregistro como CHOFER)
+// Body: nombre, email, password
+// Vincula (o crea) el Chofer por nombre, igual que hace /api/registros al vuelo,
+// así si ya tenía movimientos cargados con ese nombre, la cuenta queda unida a su historial.
+async function registroPublico(req, res, next) {
+  try {
+    const { nombre, email, password } = req.body;
+
+    if (!nombre || !nombre.trim()) {
+      return res.status(400).json({ ok: false, mensaje: 'El nombre es obligatorio' });
+    }
+    if (!email || !password) {
+      return res.status(400).json({ ok: false, mensaje: 'Email y password son obligatorios' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ ok: false, mensaje: 'La password debe tener al menos 6 caracteres' });
+    }
+
+    const chofer = await prisma.chofer.upsert({
+      where: { nombre: nombre.trim() },
+      update: {},
+      create: { nombre: nombre.trim() },
+    });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const usuario = await prisma.usuario.create({
+      data: {
+        email: email.trim().toLowerCase(),
+        password: passwordHash,
+        rol: 'CHOFER',
+        choferId: chofer.id,
+      },
+      include: { chofer: true },
+    });
+
+    const token = firmarToken({
+      id: usuario.id,
+      email: usuario.email,
+      rol: usuario.rol,
+      choferId: usuario.choferId,
+    });
+
+    res.status(201).json({ ok: true, data: { token, usuario: usuarioPublico(usuario) } });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // GET /api/auth/usuarios  (solo ADMIN)
 async function listar(req, res, next) {
   try {
@@ -111,4 +160,4 @@ async function registrar(req, res, next) {
   }
 }
 
-module.exports = { login, perfil, registrar, listar };
+module.exports = { login, perfil, registrar, listar, registroPublico };
