@@ -20,16 +20,18 @@ enum RolUsuario {
 }
 
 model Usuario {
-  id        Int        @id @default(autoincrement())
-  email     String     @unique
-  password  String     // hash bcrypt, nunca texto plano
-  rol       RolUsuario @default(CHOFER)
-  activo    Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id                Int        @id @default(autoincrement())
+  email             String     @unique
+  password          String     // hash bcrypt, nunca texto plano
+  rol               RolUsuario @default(CHOFER)
+  activo            Boolean    @default(true)
+  resetToken        String?    @unique // hash del token de recuperación de contraseña
+  resetTokenExpires DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
-  choferId  Int?       @unique // solo se usa cuando rol = CHOFER
-  chofer    Chofer?    @relation(fields: [choferId], references: [id])
+  choferId          Int?       @unique // solo se usa cuando rol = CHOFER
+  chofer            Chofer?    @relation(fields: [choferId], references: [id])
 
   @@map("usuarios")
 }

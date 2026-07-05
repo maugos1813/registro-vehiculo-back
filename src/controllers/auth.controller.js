@@ -1,8 +1,11 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { firmarToken } = require('../utils/jwt');
+const { enviarEmailRecuperacion } = require('../utils/email');
 
 const ROLES_VALIDOS = ['ADMIN', 'CHOFER'];
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 
 function usuarioPublico(usuario) {
   const { password, ...resto } = usuario;
@@ -211,4 +214,86 @@ async function eliminar(req, res, next) {
   }
 }
 
-module.exports = { login, perfil, registrar, listar, registroPublico, cambiarRol, eliminar };
+// POST /api/auth/forgot-password  (público)
+// Body: { email }
+async function olvidoPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ ok: false, mensaje: 'El email es obligatorio' });
+    }
+
+    const usuario = await prisma.usuario.findUnique({ where: { email: email.trim().toLowerCase() } });
+
+    // Mensaje genérico siempre: así este endpoint no sirve para averiguar qué emails existen
+    const mensaje = 'Si el email existe en el sistema, te enviamos un link para recuperar tu contraseña';
+
+    if (!usuario || !usuario.activo) {
+      return res.json({ ok: true, mensaje });
+    }
+
+    const tokenCrudo = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(tokenCrudo).digest('hex');
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        resetToken: tokenHash,
+        resetTokenExpires: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+      },
+    });
+
+    await enviarEmailRecuperacion(usuario.email, tokenCrudo);
+
+    res.json({ ok: true, mensaje });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/auth/reset-password  (público)
+// Body: { token, password }
+async function restablecerPassword(req, res, next) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ ok: false, mensaje: 'Token y password son obligatorios' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ ok: false, mensaje: 'La password debe tener al menos 6 caracteres' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const usuario = await prisma.usuario.findFirst({
+      where: { resetToken: tokenHash, resetTokenExpires: { gt: new Date() } },
+    });
+
+    if (!usuario) {
+      return res.status(400).json({ ok: false, mensaje: 'El link de recuperación es inválido o expiró' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { password: passwordHash, resetToken: null, resetTokenExpires: null },
+    });
+
+    res.json({ ok: true, mensaje: 'Contraseña actualizada correctamente' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  login,
+  perfil,
+  registrar,
+  listar,
+  registroPublico,
+  cambiarRol,
+  eliminar,
+  olvidoPassword,
+  restablecerPassword,
+};

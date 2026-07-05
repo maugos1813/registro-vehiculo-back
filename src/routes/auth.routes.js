@@ -6,6 +6,8 @@ const router = Router();
 
 router.post('/login', controller.login);
 router.post('/registro', controller.registroPublico);
+router.post('/forgot-password', controller.olvidoPassword);
+router.post('/reset-password', controller.restablecerPassword);
 router.get('/me', requiereAuth, controller.perfil);
 router.get('/usuarios', requiereAuth, soloAdmin, controller.listar);
 router.put('/usuarios/:id/rol', requiereAuth, soloAdmin, controller.cambiarRol);
