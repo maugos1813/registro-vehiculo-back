@@ -196,4 +196,19 @@ async function cambiarRol(req, res, next) {
   }
 }
 
-module.exports = { login, perfil, registrar, listar, registroPublico, cambiarRol };
+// DELETE /api/auth/usuarios/:id  (solo ADMIN)
+async function eliminar(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    if (id === req.usuario.id) {
+      return res.status(400).json({ ok: false, mensaje: 'No podés eliminar tu propia cuenta' });
+    }
+
+    await prisma.usuario.delete({ where: { id } });
+    res.json({ ok: true, mensaje: 'Usuario eliminado' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, perfil, registrar, listar, registroPublico, cambiarRol, eliminar };

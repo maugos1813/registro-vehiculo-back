@@ -23,6 +23,19 @@ function errorHandler(err, req, res, next) {
     return res.status(404).json({ ok: false, mensaje: 'Recurso no encontrado.' });
   }
 
+  // Violación de foreign key (ej. borrar un chofer/vehículo que todavía tiene registros).
+  // Prisma la reporta como P2002 conocido (P2003) cuando la emula él mismo, pero cuando la
+  // restricción vive directo en Postgres (nuestro caso, ON DELETE RESTRICT) llega como un
+  // PrismaClientUnknownRequestError sin código, con el detalle en el mensaje.
+  const esViolacionForeignKey =
+    err.code === 'P2003' || /violat(es|ion).*foreign key|RESTRICT setting/i.test(err.message || '');
+  if (esViolacionForeignKey) {
+    return res.status(409).json({
+      ok: false,
+      mensaje: 'No se puede eliminar: tiene otros datos asociados (registros u otra referencia).',
+    });
+  }
+
   const status = err.status || 500;
   res.status(status).json({ ok: false, mensaje: err.message || 'Error interno del servidor' });
 }
