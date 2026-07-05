@@ -11,7 +11,10 @@ if (dns.Resolver) {
 dns.resolve6 = (hostname, callback) => callback(null, []);
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // STARTTLS: algunos hosts en la nube bloquean el 465 (TLS implícito)
+  requireTLS: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_APP_PASSWORD,
