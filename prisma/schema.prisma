@@ -27,6 +27,7 @@ model Usuario {
   activo            Boolean    @default(true)
   resetToken        String?    @unique // hash del token de recuperación de contraseña
   resetTokenExpires DateTime?
+  passwordChangedAt DateTime?  // invalida los JWT emitidos antes de este momento
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 

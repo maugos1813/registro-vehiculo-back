@@ -283,7 +283,12 @@ async function restablecerPassword(req, res, next) {
 
     await prisma.usuario.update({
       where: { id: usuario.id },
-      data: { password: passwordHash, resetToken: null, resetTokenExpires: null },
+      data: {
+        password: passwordHash,
+        resetToken: null,
+        resetTokenExpires: null,
+        passwordChangedAt: new Date(),
+      },
     });
 
     res.json({ ok: true, mensaje: 'Contraseña actualizada correctamente' });
