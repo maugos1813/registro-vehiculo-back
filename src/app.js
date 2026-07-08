@@ -7,6 +7,10 @@ const { notFound, errorHandler } = require('./middlewares/error.middleware');
 
 const app = express();
 
+// Render corre detrás de un proxy: sin esto, express-rate-limit (y req.ip en
+// general) ve la IP del proxy en vez de la del cliente real.
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
