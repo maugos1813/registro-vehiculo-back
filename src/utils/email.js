@@ -1,32 +1,13 @@
-const dns = require('dns');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Algunos hosts en la nube (ej. Render) reportan una interfaz IPv6 que en
-// realidad no tiene salida a internet. Nodemailer resuelve A y AAAA y elige
-// una al azar, así que puede terminar intentando conectar por esa IPv6
-// inexistente y tirar ENETUNREACH. Forzamos que solo resuelva IPv4.
-if (dns.Resolver) {
-  dns.Resolver.prototype.resolve6 = (hostname, callback) => callback(null, []);
-}
-dns.resolve6 = (hostname, callback) => callback(null, []);
-
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // STARTTLS: algunos hosts en la nube bloquean el 465 (TLS implícito)
-  requireTLS: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // tokenCrudo: token sin hashear (el hash es lo único que se guarda en la base)
 async function enviarEmailRecuperacion(destinatario, tokenCrudo) {
   const link = `${process.env.FRONTEND_URL}?token=${tokenCrudo}`;
 
-  await transporter.sendMail({
-    from: `"Registro de Vehículos" <${process.env.EMAIL_USER}>`,
+  const { error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM,
     to: destinatario,
     subject: 'Recuperar tu contraseña',
     html: `
@@ -35,6 +16,10 @@ async function enviarEmailRecuperacion(destinatario, tokenCrudo) {
       <p>Este link expira en 1 hora. Si no fuiste vos quien lo pidió, podés ignorar este email.</p>
     `,
   });
+
+  if (error) {
+    throw new Error(error.message || 'Error enviando el email de recuperación');
+  }
 }
 
 module.exports = { enviarEmailRecuperacion };
