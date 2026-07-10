@@ -9,6 +9,7 @@ router.use(requiereAuth);
 
 router.get('/', controller.listar);
 router.get('/ultimo/:vehiculoId', controller.ultimoEstadoVehiculo);
+router.get('/ultimo-chofer/:choferId', controller.ultimoEstadoChofer);
 router.get('/:id', controller.obtener);
 router.post('/', uploadFotos, controller.crear);
 router.put('/:id', uploadFotos, controller.actualizar);

@@ -106,6 +106,22 @@ async function crear(req, res, next) {
       choferId = chofer.id;
     }
 
+    // Un chofer no puede tomar un vehículo si todavía tiene otro tomado sin dejar.
+    // Se mira su último movimiento (en cualquier vehículo): si fue un TOMA, sigue "con" ese vehículo.
+    if (tipo.toUpperCase() === 'TOMA') {
+      const ultimoDelChofer = await prisma.registro.findFirst({
+        where: { choferId: Number(choferId) },
+        orderBy: { fechaHora: 'desc' },
+        include: { vehiculo: true },
+      });
+      if (ultimoDelChofer && ultimoDelChofer.tipo === 'TOMA') {
+        return res.status(409).json({
+          ok: false,
+          mensaje: `Ya tenés el vehículo ${ultimoDelChofer.vehiculo.targa} tomado. Dejalo antes de tomar otro.`,
+        });
+      }
+    }
+
     // Resolver vehículo: por id, o por targa (crea si no existe)
     if (!vehiculoId) {
       if (!targaVehiculo || !targaVehiculo.trim()) {
@@ -231,4 +247,26 @@ async function ultimoEstadoVehiculo(req, res, next) {
   }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar, ultimoEstadoVehiculo };
+// GET /api/registros/ultimo-chofer/:choferId -> saber si el chofer tiene un vehículo tomado ahora mismo
+async function ultimoEstadoChofer(req, res, next) {
+  try {
+    const ultimo = await prisma.registro.findFirst({
+      where: { choferId: Number(req.params.choferId) },
+      orderBy: { fechaHora: 'desc' },
+      include: { chofer: true, vehiculo: true },
+    });
+    if (!ultimo) {
+      return res.json({ ok: true, data: null, mensaje: 'Sin movimientos registrados para este chofer' });
+    }
+
+    const esAdmin = req.usuario.rol === 'ADMIN';
+    const esDueno = ultimo.choferId === req.usuario.choferId;
+    const data = esAdmin || esDueno ? ultimo : { ...ultimo, fotos: [] };
+
+    res.json({ ok: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, ultimoEstadoVehiculo, ultimoEstadoChofer };
